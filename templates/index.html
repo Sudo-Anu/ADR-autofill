@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RxMap — ADR Form Autofill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:       #0f0e0c;
+  --ink2:      #3a3834;
+  --ink3:      #7a7570;
+  --paper:     #faf8f5;
+  --surface:   #f2efe9;
+  --border:    #e0dbd2;
+  --border2:   #ccc5b8;
+  --red:       #c0392b;
+  --red-d:     #922b21;
+  --red-pale:  #fdf0ee;
+  --amber:     #d4780a;
+  --green:     #2e7d32;
+  --green-pale:#f0f7f0;
+  --mono:      'DM Mono', monospace;
+  --serif:     'DM Serif Display', serif;
+  --sans:      'Outfit', sans-serif;
+  --r:         6px;
+  --r2:        10px;
+  --shadow:    0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Top bar ── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--ink);
+  padding: 0 32px;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #222;
+}
+.topbar-brand {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.topbar-logo {
+  font-family: var(--serif);
+  font-size: 20px;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.topbar-logo em { color: #e07060; font-style: normal; }
+.topbar-sub {
+  font-size: 11px;
+  color: #888;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.topbar-right {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 0.03em;
+}
+
+/* ── Layout ── */
+.wrap { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ── Hero ── */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+  margin-bottom: 40px;
+}
+@media (max-width: 680px) { .hero { grid-template-columns: 1fr; } }
+
+.hero-text h1 {
+  font-family: var(--serif);
+  font-size: 36px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.hero-text h1 em {
+  font-style: italic;
+  color: var(--red);
+}
+.hero-text p {
+  font-size: 14px;
+  color: var(--ink3);
+  font-weight: 300;
+  max-width: 360px;
+  line-height: 1.7;
+}
+.pill-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 16px;
+}
+.pill {
+  font-size: 11px; font-weight: 500;
+  padding: 4px 12px; border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--ink2);
+  background: var(--surface);
+  letter-spacing: 0.02em;
+}
+.pill.red { border-color: #f5b7b1; background: var(--red-pale); color: var(--red-d); }
+.pill.green { border-color: #a5d6a7; background: var(--green-pale); color: var(--green); }
+
+/* ── Upload panel ── */
+.upload-panel {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.upload-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--r2);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.upload-zone:hover { border-color: var(--red); background: var(--red-pale); }
+.upload-zone input { display: none; }
+.uz-icon {
+  width: 40px; height: 40px; margin: 0 auto 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.uz-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+.uz-sub { font-size: 12px; color: var(--ink3); }
+#preview-wrap { display: none; margin-top: 14px; }
+#preview-wrap img { width: 100%; max-height: 180px; object-fit: contain; border-radius: var(--r); border: 1px solid var(--border); }
+.remove-btn {
+  font-size: 11px; color: var(--ink3);
+  background: none; border: none; cursor: pointer;
+  margin-top: 6px; text-decoration: underline;
+  display: block; text-align: center;
+}
+.remove-btn:hover { color: var(--red); }
+
+.extract-btn {
+  width: 100%; margin-top: 14px;
+  padding: 11px;
+  background: var(--ink);
+  color: #fff;
+  border: none; border-radius: var(--r);
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background .15s, transform .1s;
+  letter-spacing: 0.01em;
+}
+.extract-btn:hover:not(:disabled) { background: #222; transform: translateY(-1px); }
+.extract-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.extract-status {
+  margin-top: 10px; font-size: 12px; color: var(--ink3);
+  min-height: 18px; text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* ── Progress steps ── */
+.steps {
+  display: flex; gap: 0;
+  margin-bottom: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  overflow: hidden;
+  background: #fff;
+}
+.step {
+  flex: 1; padding: 12px 10px;
+  text-align: center; font-size: 12px;
+  color: var(--ink3); font-weight: 400;
+  border-right: 1px solid var(--border);
+  transition: background .2s, color .2s;
+}
+.step:last-child { border-right: none; }
+.step .sn {
+  display: block; font-family: var(--mono); font-size: 10px;
+  color: var(--ink3); margin-bottom: 2px;
+}
+.step.active { background: var(--surface); color: var(--ink); font-weight: 500; }
+.step.done { background: var(--green-pale); color: var(--green); }
+.step.done .sn { color: var(--green); }
+
+/* ── Form sections ── */
+#form-section { display: none; }
+.notice {
+  padding: 12px 16px; border-radius: var(--r);
+  font-size: 13px; margin-bottom: 20px;
+  border-left: 3px solid;
+}
+.notice.info { background: #eef4fb; border-color: #4a90d9; color: #1a4a7a; }
+.notice.warn { background: #fff8e1; border-color: var(--amber); color: #7a4f00; }
+
+.section-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.section-head {
+  background: var(--ink);
+  padding: 9px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-head .sh-letter {
+  font-family: var(--mono); font-size: 10px;
+  color: #888; letter-spacing: 0.1em;
+}
+.section-head .sh-title {
+  font-size: 12px; font-weight: 500; color: #fff;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.section-body { padding: 16px; }
+
+.fgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+.fgrid.tight { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.full { grid-column: 1 / -1; }
+.field.half { grid-column: span 2; }
+
+label.flabel {
+  font-size: 11px; font-weight: 500;
+  color: var(--ink3);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+input.finput, select.finput, textarea.finput {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font-size: 13px; font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+  transition: border-color .15s, background .15s;
+}
+input.finput:focus, select.finput:focus, textarea.finput:focus {
+  outline: none; border-color: var(--ink2);
+  background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.05);
+}
+textarea.finput { resize: vertical; min-height: 64px; }
+input.finput.filled { background: #fff; border-color: var(--border2); }
+
+/* ── Checkbox rows ── */
+.check-row {
+  display: flex; flex-wrap: wrap; gap: 10px 18px;
+  margin-top: 8px;
+}
+.check-row label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--ink2); cursor: pointer;
+  user-select: none;
+}
+.check-row input[type=checkbox],
+.check-row input[type=radio] {
+  accent-color: var(--red);
+  width: 14px; height: 14px; cursor: pointer;
+}
+.sub-label {
+  font-size: 11px; font-weight: 500; color: var(--ink3);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 4px; margin-top: 12px;
+  display: block;
+}
+
+/* ── Medication table ── */
+.med-scroll { overflow-x: auto; }
+table.med-tbl {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; min-width: 700px;
+}
+table.med-tbl th {
+  background: var(--surface);
+  text-align: left; padding: 7px 8px;
+  font-size: 11px; font-weight: 500; color: var(--ink3);
+  border: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+table.med-tbl td {
+  border: 1px solid var(--border);
+  padding: 2px 4px;
+  background: #fff;
+}
+table.med-tbl td:first-child {
+  color: var(--ink3); font-family: var(--mono); font-size: 11px;
+  text-align: center; background: var(--surface);
+  width: 28px;
+}
+table.med-tbl input {
+  border: none; background: transparent;
+  font-size: 12px; font-family: var(--sans);
+  color: var(--ink); padding: 5px 6px; width: 100%;
+}
+table.med-tbl input:focus {
+  outline: none; background: #fffde7; border-radius: 3px;
+}
+table.med-tbl tr:hover td { background: var(--paper); }
+table.med-tbl tr:hover td:first-child { background: var(--surface); }
+
+/* ── Action bar ── */
+.action-bar {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; padding: 20px 0 0;
+}
+.btn-dl {
+  padding: 11px 28px;
+  background: var(--red); color: #fff;
+  border: none; border-radius: var(--r);
+  font-family: var(--sans); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background .15s, transform .1s;
+  letter-spacing: 0.01em;
+}
+.btn-dl:hover { background: var(--red-d); transform: translateY(-1px); }
+.btn-ghost {
+  padding: 11px 20px;
+  background: transparent; color: var(--ink2);
+  border: 1px solid var(--border2); border-radius: var(--r);
+  font-family: var(--sans); font-size: 14px;
+  cursor: pointer; transition: background .15s;
+}
+.btn-ghost:hover { background: var(--surface); }
+.action-note { font-size: 12px; color: var(--ink3); }
+
+/* ── Spinner ── */
+.spin {
+  width: 13px; height: 13px;
+  border: 2px solid var(--border);
+  border-top-color: var(--ink2);
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+  display: inline-block; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 999;
+  padding: 12px 20px; border-radius: var(--r2);
+  font-size: 13px; font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0,0,0,.15);
+  transform: translateY(80px); opacity: 0;
+  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok  { background: var(--green); color: #fff; }
+.toast.err { background: var(--red);   color: #fff; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .topbar { padding: 0 16px; }
+  .wrap { padding: 24px 16px 60px; }
+  .hero-text h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-logo">Rx<em>Map</em></span>
+    <span class="topbar-sub">ADR Form Autofill</span>
+  </div>
+  <span class="topbar-right">IPC · PvPI v1.4</span>
+</div>
+
+<div class="wrap">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-text">
+      <h1>From prescription<br/>to <em>ADR report</em><br/>in seconds.</h1>
+      <p>Upload a computer-generated prescription. RxMap reads it with OCR, strips the noise, and pre-fills every field of the IPC PvPI form for you.</p>
+      <div class="pill-row">
+        <span class="pill green">Fully offline</span>
+        <span class="pill">No API key needed</span>
+        <span class="pill">Tesseract OCR</span>
+        <span class="pill red">IPC ADR v1.4</span>
+      </div>
+    </div>
+
+    <!-- Upload panel -->
+    <div class="upload-panel">
+      <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-inp').click()">
+        <input type="file" id="file-inp" accept="image/*" onchange="handleFile(event)"/>
+        <div class="uz-icon">📄</div>
+        <div class="uz-title">Drop prescription here</div>
+        <div class="uz-sub">JPG · PNG · BMP · TIFF · max 10 MB</div>
+      </div>
+      <div id="preview-wrap">
+        <img id="preview-img" alt="Preview"/>
+        <button class="remove-btn" onclick="clearFile()">Remove file</button>
+      </div>
+      <button id="extract-btn" class="extract-btn" onclick="doExtract()" disabled>
+        Read prescription →
+      </button>
+      <div id="status" class="extract-status"></div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step active" id="step1"><span class="sn">01</span>Upload</div>
+    <div class="step" id="step2"><span class="sn">02</span>Extract</div>
+    <div class="step" id="step3"><span class="sn">03</span>Review</div>
+    <div class="step" id="step4"><span class="sn">04</span>Download PDF</div>
+  </div>
+
+  <!-- Form -->
+  <div id="form-section">
+    <div class="notice info">
+      Fields pre-filled from prescription. Always verify before submitting — OCR can miss or misread text.
+    </div>
+
+    <!-- A: Patient -->
+    <div class="section-block">
+      <div class="section-head">
+        <span class="sh-letter">A</span>
+        <span class="sh-title">Patient Information</span>
+      </div>
+      <div class="section-body">
+        <div class="fgrid">
+          <div class="field">
+            <label class="flabel">1. Patient Initials</label>
+            <input id="f_initials" class="finput" placeholder="e.g. R.K."/>
+          </div>
+          <div class="field">
+            <label class="flabel">2. Age / Date of Birth</label>
+            <input id="f_age" class="finput" placeholder="e.g. 34 Y"/>
+          </div>
+          <div class="field">
+            <label class="flabel">3. Gender</label>
+            <select id="f_gender" class="finput">
+              <option value="">Select</option>
+              <option>Male</option><option>Female</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="flabel">4. Weight (kg)</label>
+            <input id="f_weight" class="finput" placeholder="e.g. 68 kg"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B: Reaction -->
+    <div class="section-block">
+      <div class="section-head">
+        <span class="sh-letter">B</span>
+        <span class="sh-title">Suspected Adverse Reaction</span>
+      </div>
+      <div class="section-body">
+        <div class="fgrid">
+          <div class="field">
+            <label class="flabel">5. Reaction Start (dd/mm/yyyy)</label>
+            <input id="f_rxstart" class="finput" placeholder="dd/mm/yyyy"/>
+          </div>
+          <div class="field">
+            <label class="flabel">6. Reaction Stop (dd/mm/yyyy)</label>
+            <input id="f_rxstop" class="finput" placeholder="dd/mm/yyyy"/>
+          </div>
+          <div class="field full">
+            <label class="flabel">7. Event / Reaction description</label>
+            <textarea id="f_rxdesc" class="finput"></textarea>
+          </div>
+        </div>
+
+        <span class="sub-label">14. Seriousness</span>
+        <div class="check-row">
+          <label><input type="checkbox" id="s_death"/>Death</label>
+          <label><input type="checkbox" id="s_lt"/>Life threatening</label>
+          <label><input type="checkbox" id="s_hosp"/>Hospitalization</label>
+          <label><input type="checkbox" id="s_dis"/>Disability</label>
+          <label><input type="checkbox" id="s_ca"/>Congenital anomaly</label>
+          <label><input type="checkbox" id="s_omi"/>Other medically important</label>
+        </div>
+
+        <span class="sub-label">15. Outcome</span>
+        <div class="check-row">
+          <label><input type="radio" name="outcome" value="Recovered"/>Recovered</label>
+          <label><input type="radio" name="outcome" value="Recovering"/>Recovering</label>
+          <label><input type="radio" name="outcome" value="Not recovered"/>Not recovered</label>
+          <label><input type="radio" name="outcome" value="Recovered with sequelae"/>Recovered with sequelae</label>
+          <label><input type="radio" name="outcome" value="Fatal"/>Fatal</label>
+          <label><input type="radio" name="outcome" value="Unknown"/>Unknown</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- C: Medications -->
+    <div class="section-block">
+      <div class="section-head">
+        <span class="sh-letter">C</span>
+        <span class="sh-title">Suspected Medication(s)</span>
+      </div>
+      <div class="section-body">
+        <div class="med-scroll">
+          <table class="med-tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Drug Name (Brand / Generic)</th>
+                <th>Batch No.</th>
+                <th>Expiry</th>
+                <th>Dose</th>
+                <th>Route</th>
+                <th>Frequency</th>
+                <th>Therapy Start</th>
+                <th>Therapy Stop</th>
+                <th>Indication</th>
+              </tr>
+            </thead>
+            <tbody id="med-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- D: Reporter -->
+    <div class="section-block">
+      <div class="section-head">
+        <span class="sh-letter">D</span>
+        <span class="sh-title">Reporter Details</span>
+      </div>
+      <div class="section-body">
+        <div class="fgrid">
+          <div class="field full">
+            <label class="flabel">16. Name &amp; Address of Reporter</label>
+            <textarea id="f_reporter" class="finput" style="min-height:52px;"></textarea>
+          </div>
+          <div class="field">
+            <label class="flabel">Clinic / Hospital</label>
+            <input id="f_clinic" class="finput" placeholder="Clinic or hospital name"/>
+          </div>
+          <div class="field">
+            <label class="flabel">PIN Code</label>
+            <input id="f_pin" class="finput" placeholder="e.g. 440001"/>
+          </div>
+          <div class="field">
+            <label class="flabel">Contact No. (Doctor)</label>
+            <input id="f_contact" class="finput" placeholder="+91 XXXXXXXXXX"/>
+          </div>
+          <div class="field">
+            <label class="flabel">Email</label>
+            <input id="f_email" class="finput" type="email"/>
+          </div>
+          <div class="field">
+            <label class="flabel">Occupation</label>
+            <input id="f_occ" class="finput" placeholder="Doctor / Pharmacist / Nurse"/>
+          </div>
+          <div class="field">
+            <label class="flabel">Reg. No.</label>
+            <input id="f_reg" class="finput" placeholder="Medical reg. number"/>
+          </div>
+          <div class="field">
+            <label class="flabel">17. Date of Report (dd/mm/yyyy)</label>
+            <input id="f_repdate" class="finput" placeholder="dd/mm/yyyy"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-dl" onclick="downloadPDF()">Download PDF report</button>
+      <button class="btn-ghost" onclick="clearAll()">Start over</button>
+      <span class="action-note">Submit to pvpi.ipc@gov.in · Helpline 1800-180-3024</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+let fileObj = null;
+
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  setTimeout(() => el.className = 'toast ' + type, 3000);
+}
+
+function setStep(n) {
+  ['step1','step2','step3','step4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (i + 1 < n) el.className = 'step done';
+    else if (i + 1 === n) el.className = 'step active';
+    else el.className = 'step';
+  });
+}
+
+function handleFile(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.size > 10 * 1024 * 1024) { toast('File too large (max 10 MB)', 'err'); return; }
+  fileObj = f;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('preview-wrap').style.display = 'block';
+    document.getElementById('upload-zone').style.borderStyle = 'solid';
+    document.getElementById('upload-zone').style.borderColor = 'var(--border2)';
+  };
+  reader.readAsDataURL(f);
+  document.getElementById('extract-btn').disabled = false;
+  setStep(1);
+}
+
+function clearFile() {
+  fileObj = null;
+  document.getElementById('file-inp').value = '';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('upload-zone').style.borderStyle = 'dashed';
+  document.getElementById('upload-zone').style.borderColor = 'var(--border2)';
+  document.getElementById('extract-btn').disabled = true;
+  setStatus('');
+}
+
+function clearAll() {
+  clearFile();
+  document.getElementById('form-section').style.display = 'none';
+  setStep(1);
+}
+
+function setStatus(msg, loading=false) {
+  const el = document.getElementById('status');
+  el.innerHTML = loading
+    ? `<span class="spin"></span> ${msg}`
+    : `<span>${msg}</span>`;
+}
+
+function markFilled(id) {
+  const el = document.getElementById(id);
+  if (el && el.value) el.classList.add('filled');
+}
+
+function fillField(id, val) {
+  const el = document.getElementById(id);
+  if (!el || !val) return;
+  el.value = val;
+  el.classList.add('filled');
+}
+
+function initMedRows(meds) {
+  const tbody = document.getElementById('med-tbody');
+  tbody.innerHTML = '';
+  const labels = ['i','ii','iii','iv'];
+  const cols   = ['drug','batch','expiry','dose','route','frequency','start','stop','indication'];
+  const phs    = ['Drug name','Batch no.','Expiry','Dose','Route','Freq.','dd/mm/yy','dd/mm/yy','Indication'];
+  for (let i = 0; i < 4; i++) {
+    const m = (meds && meds[i]) || {};
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${labels[i]}</td>` +
+      cols.map((c, ci) =>
+        `<td><input value="${(m[c]||'').replace(/"/g,'&quot;')}" placeholder="${phs[ci]}" /></td>`
+      ).join('');
+    tbody.appendChild(tr);
+  }
+}
+
+async function doExtract() {
+  if (!fileObj) return;
+  const btn = document.getElementById('extract-btn');
+  btn.disabled = true;
+  setStep(2);
+  setStatus('Running OCR — reading prescription...', true);
+
+  const fd = new FormData();
+  fd.append('file', fileObj);
+
+  try {
+    const res  = await fetch('/extract', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    fillField('f_initials', data.initials);
+    fillField('f_age',      data.age);
+    fillField('f_weight',   data.weight);
+    fillField('f_rxdesc',   data.diagnosis);
+    fillField('f_reporter', data.doctor_name + (data.doctor_qualification ? ' — ' + data.doctor_qualification : ''));
+    fillField('f_clinic',   data.clinic_name);
+    fillField('f_contact',  data.doctor_phone);
+    fillField('f_reg',      data.doctor_reg);
+    fillField('f_repdate',  data.report_date);
+
+    if (data.gender) {
+      const sel = document.getElementById('f_gender');
+      for (const o of sel.options) { if (o.value === data.gender) { sel.value = data.gender; break; } }
+    }
+
+    initMedRows(data.medications || []);
+
+    setStep(3);
+    setStatus('Done — review the fields below.');
+    document.getElementById('form-section').style.display = 'block';
+    document.getElementById('form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('Prescription parsed successfully');
+  } catch (err) {
+    setStatus('');
+    toast('Error: ' + err.message, 'err');
+    initMedRows([]);
+    document.getElementById('form-section').style.display = 'block';
+  }
+  btn.disabled = false;
+}
+
+function getMeds() {
+  const cols = ['drug','batch','expiry','dose','route','frequency','start','stop','indication'];
+  return Array.from(document.querySelectorAll('#med-tbody tr')).map(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const obj = {};
+    cols.forEach((c, i) => obj[c] = inputs[i]?.value || '');
+    return obj;
+  });
+}
+
+async function downloadPDF() {
+  setStep(4);
+  const outcome = document.querySelector('input[name="outcome"]:checked')?.value || '';
+  const payload = {
+    initials:              document.getElementById('f_initials').value,
+    age:                   document.getElementById('f_age').value,
+    gender:                document.getElementById('f_gender').value,
+    weight:                document.getElementById('f_weight').value,
+    diagnosis:             document.getElementById('f_rxdesc').value,
+    doctor_name:           document.getElementById('f_reporter').value,
+    doctor_phone:          document.getElementById('f_contact').value,
+    doctor_reg:            document.getElementById('f_reg').value,
+    doctor_qualification:  '',
+    clinic_name:           document.getElementById('f_clinic').value,
+    clinic_address:        '',
+    report_date:           document.getElementById('f_repdate').value,
+    reaction: {
+      start:       document.getElementById('f_rxstart').value,
+      stop:        document.getElementById('f_rxstop').value,
+      description: document.getElementById('f_rxdesc').value,
+    },
+    seriousness: {
+      death:              document.getElementById('s_death').checked,
+      life_threatening:   document.getElementById('s_lt').checked,
+      hospitalization:    document.getElementById('s_hosp').checked,
+      disability:         document.getElementById('s_dis').checked,
+      congenital_anomaly: document.getElementById('s_ca').checked,
+      other:              document.getElementById('s_omi').checked,
+    },
+    outcome,
+    medications: getMeds(),
+    reporter: {
+      name:       document.getElementById('f_reporter').value,
+      address:    document.getElementById('f_clinic').value,
+      contact:    document.getElementById('f_contact').value,
+      email:      document.getElementById('f_email').value,
+      occupation: document.getElementById('f_occ').value || 'Medical Practitioner',
+    },
+  };
+
+  const res = await fetch('/generate-pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) { toast('PDF generation failed', 'err'); return; }
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'ADR_Report.pdf'; a.click();
+  URL.revokeObjectURL(url);
+  toast('PDF downloaded');
+}
+
+initMedRows([]);
+</script>
+</body>
+</html>
