@@ -114,10 +114,9 @@ Depending on your setup, you may configure:
 
 ## 🛠 Technologies
 
-* Language: *(Add your programming language)*
-* Framework: *(If applicable)*
-* Platform: Windows / Linux / macOS *(if supported)*
-
+* Language: Python, HTML, CSS, JS
+* Framework: Tesseract OCR, Ollama, pdf-lib
+* Platform: Windows And Linux
 ---
 
 ## 🤝 Contributing
